@@ -1,5 +1,8 @@
 package main
 
+// Copyright (C) 2017-2019 Philip Schlump.  See ./LICENSE
+// Copyright (C) 2017-2019 Philip Schlump.  See ./LICENSE
+
 // Sample: http://127.0.0.1:9018/api/v1/genpdf?in=https://www.google.com&title=bo
 
 // xyzzy - "in" should be URL decoded.
@@ -204,7 +207,7 @@ func main() {
 	monClient, err7 := RedisClient()
 	fmt.Printf("err7=%v AT: %s\n", err7, godebug.LF())
 	mon := MonAliveLib.NewMonIt(func() *redis.Client { return monClient }, func(conn *redis.Client) {})
-	mon.SendPeriodicIAmAlive("PDF-Generation-MS")
+	mon.SendPeriodicIAmAlive("PDF-Generate-MS")
 
 	// ------------------------------------------------------------------------------
 	// Setup / Run the HTTP Server.
@@ -426,6 +429,7 @@ func RunGenPDF(in, out string) (err error) {
 	if db_flag["print-command-success"] {
 		fmt.Printf("Running command and waiting for it to finish...")
 	}
+	IncPdf()
 	err = cmd.Run()
 	if err != nil {
 		fmt.Printf("Command finished with error: %v: %s %s %s\n", err, gCfg.WkHTMLToPdf, in, out)

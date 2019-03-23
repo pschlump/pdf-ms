@@ -23,7 +23,7 @@ func CheckAuthToken(www http.ResponseWriter, req *http.Request) bool {
 	}
 
 	// look for cookie
-	cookie, err := req.Cookie("Qr-Auth")
+	cookie, err := req.Cookie("Pdf-Auth")
 	if db_flag["db-auth"] {
 		fmt.Printf("Cookie: %s\n", godebug.SVarI(cookie))
 	}
@@ -38,7 +38,7 @@ func CheckAuthToken(www http.ResponseWriter, req *http.Request) bool {
 
 	// look for header
 	// ua := r.Header.Get("User-Agent")
-	auth := req.Header.Get("X-Qr-Auth")
+	auth := req.Header.Get("X-Pdf-Auth")
 	if db_flag["db-auth"] {
 		fmt.Printf("Header: %s\n", godebug.SVarI(auth))
 	}

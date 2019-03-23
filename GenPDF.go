@@ -1,5 +1,7 @@
 package main
 
+// Copyright (C) 2017-2019 Philip Schlump.  See ./LICENSE
+
 import (
 	"fmt"
 
