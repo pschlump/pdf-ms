@@ -1,8 +1,5 @@
 package main
 
-//	GenPdf("https://en.wikipedia.org/wiki/Secure_Remote_Password_protocol", ",a.pdf")
-//	GenPdf("https://www.google.com", ",b.pdf")
-
 // Sample: http://127.0.0.1:9018/api/v1/genpdf?in=https://www.google.com&title=bo
 
 // xyzzy - "in" should be URL decoded.
@@ -311,42 +308,42 @@ func HandleGenPDF(www http.ResponseWriter, req *http.Request) {
 	tmpFn := id0.String()
 
 	genTmp := fmt.Sprintf("%s/%s/%s.pdf", wd, gCfg.OutputPath, tmpFn)
-	fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+	// fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
 
 	if db_flag["file-names"] {
 		fmt.Printf(" At Top: %s genTmp=[%s]\n", godebug.LF(), genTmp)
 	}
 
-	if true {
+	if false {
 		fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
-		err = GenPDF("yep yep yep", in, genTmp)
-		// err := GenPDF(title, in, genTmp)
+		// err = GenPDF("yep yep yep", in, genTmp)
+		err = GenPDF(title, in, genTmp)
 		fmt.Fprintf(os.Stderr, "AT: %s, err %s\n", godebug.LF(), err)
 	} else {
-		fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+		// fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
 		err = RunGenPDF(in, genTmp)
-		fmt.Fprintf(os.Stderr, "AT: %s, err %s\n", godebug.LF(), err)
+		// fmt.Fprintf(os.Stderr, "AT: %s, err %s\n", godebug.LF(), err)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s AT:%s\n", err, godebug.LF())
 		www.WriteHeader(http.StatusInternalServerError)
 	}
 
-	fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+	// fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
 	data, err := ioutil.ReadFile(genTmp)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s AT:%s\n", err, godebug.LF())
 		www.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+	// fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
 	hash := HashStrings.HashByte(data)
 	newFn := fmt.Sprintf("%s/%s/%x.pdf", wd, gCfg.OutputPath, hash)
 	newURI := fmt.Sprintf("%s/%x.pdf", gCfg.OutputURI, hash)
 	if db_flag["file-names"] {
 		fmt.Printf("\n%sAt Top: %s%s\n\tgenTmp=[%s]\n\tnewFn=[%s]\n\tnewURI=[%s]\n\n", MiscLib.ColorYellow, godebug.LF(), MiscLib.ColorReset, genTmp, newFn, newURI)
 	}
-	fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+	// fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
 	err = os.Rename(genTmp, newFn)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s AT:%s\n\tFrom[%s]\n\tTo   [%s]\n\n", err, godebug.LF(), genTmp, newFn)
@@ -354,7 +351,7 @@ func HandleGenPDF(www http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+	// fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
 	www.Header().Set("Content-Type", "application/json; charset=utf-8")
 	www.WriteHeader(http.StatusOK) // 200
 	fmt.Fprintf(www, `{"status":"success","URI":%q}`+"\n", newURI)

@@ -49,6 +49,17 @@ func CheckAuthToken(www http.ResponseWriter, req *http.Request) bool {
 		return true
 	}
 
+	auth_key_found, auth_key := GetVar("auth_key", www, req)
+	if db_flag["db-auth"] {
+		fmt.Printf("Variable: %s\n", auth_key)
+	}
+	if auth_key_found && auth_key == gCfg.AuthKey {
+		if db_flag["db-auth"] {
+			fmt.Fprintf(logFilePtr, "%sAuth Success - header%s\n", MiscLib.ColorGreen, MiscLib.ColorReset)
+		}
+		return true
+	}
+
 	if db_flag["db-auth"] {
 		fmt.Fprintf(logFilePtr, "%sAuth Fail%s\n", MiscLib.ColorRed, MiscLib.ColorReset)
 	}

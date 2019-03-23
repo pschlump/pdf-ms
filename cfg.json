@@ -2,6 +2,6 @@
 	"db_flag": "",
 	"log_file_name": "./log/log.out",
 	"xx_auth_key": "$ENV$PDF_AUTH_KEY",
-	"db_flag": "file-names",
+	"db_flag": "",
 	"auth_key": "-none-"
 }
