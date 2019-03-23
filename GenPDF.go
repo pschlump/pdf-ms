@@ -42,9 +42,8 @@ func GenPDF(title, in, out string) error {
 	if err != nil {
 		return err
 	}
-	defer fp.Close()
-
 	IncPdf()
 	fmt.Fprintf(fp, "%s", output)
+	fp.Close()
 	return nil
 }

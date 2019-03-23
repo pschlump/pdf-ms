@@ -3,15 +3,23 @@ package main
 //	GenPdf("https://en.wikipedia.org/wiki/Secure_Remote_Password_protocol", ",a.pdf")
 //	GenPdf("https://www.google.com", ",b.pdf")
 
+// Sample: http://127.0.0.1:9018/api/v1/genpdf?in=https://www.google.com&title=bo
+
+// xyzzy - "in" should be URL decoded.
+// xyzzy - send output in PDF format back to caller insetead of seting JSON with path.
+// xyzzy - should track number of errors and where for status return.
+
 import (
 	"context"
 	"crypto/tls"
 	"database/sql"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path"
 	"strings"
@@ -20,12 +28,14 @@ import (
 
 	"github.com/American-Certified-Brands/config-sample/ReadConfig"
 	pdf "github.com/adrg/go-wkhtmltopdf"
+	"github.com/pschlump/HashStrings"
 	"github.com/pschlump/MiscLib"
 	"github.com/pschlump/filelib"
 	"github.com/pschlump/godebug"
 	MonAliveLib "github.com/pschlump/mon-alive/lib" // "github.com/pschlump/mon-alive/lib"
 	"github.com/pschlump/radix.v2/redis"
 	template "github.com/pschlump/textTemplate"
+	"github.com/pschlump/uuid"
 )
 
 // ----------------------------------------------------------------------------------
@@ -35,7 +45,7 @@ import (
 // ----------------------------------------------------------------------------------
 
 var Cfg = flag.String("cfg", "cfg.json", "config file for this call")
-var HostPort = flag.String("hostport", ":9022", "Host/Port to listen on")
+var HostPort = flag.String("hostport", ":9018", "Host/Port to listen on")
 var DbFlag = flag.String("db_flag", "", "Additional Debug Flags")
 var TLS_crt = flag.String("tls_crt", "", "TLS Signed Publick Key")
 var TLS_key = flag.String("tls_key", "", "TLS Signed Private Key")
@@ -48,7 +58,10 @@ type GlobalConfigData struct {
 
 	LogFileName string `json:"log_file_name"`
 
-	OutputPath string `json:"./www/out"`
+	OutputPath  string `default:"./www/out"`
+	OutputURI   string `default:"/out"`
+	WkHTMLToPdf string `default:"/usr/local/bin/wkhtmltopdf"`
+
 	// debug flags:
 	DebugFlag string `json:"db_flag"`
 
@@ -71,6 +84,7 @@ var httpServer *http.Server
 var logger *log.Logger
 var shutdownWaitTime = time.Duration(1)
 var isTLS bool
+var wd string
 
 func init() {
 	isTLS = false
@@ -83,6 +97,8 @@ func init() {
 func main() {
 	pdf.Init()
 	defer pdf.Destroy()
+
+	wd = GetWD()
 
 	flag.Parse() // Parse CLI arguments to this, --cfg <name>.json
 
@@ -174,6 +190,7 @@ func main() {
 	// ------------------------------------------------------------------------------
 	mux := http.NewServeMux()
 	mux.Handle("/api/v1/status", http.HandlerFunc(HandleStatus))          //
+	mux.Handle("/status", http.HandlerFunc(HandleStatus))                 //
 	mux.Handle("/api/v1/exit-server", http.HandlerFunc(HandleExitServer)) //
 	mux.Handle("/api/v1/genpdf", http.HandlerFunc(HandleGenPDF))          //
 	mux.Handle("/", http.FileServer(http.Dir("www")))
@@ -262,11 +279,13 @@ func IncPdf() {
 	nPDFConvertedMux.Unlock()
 }
 
-// xyzzy - send output in PDF format back to caller insetead of seting JSON with path.
-// mux.Handle("/api/v1/genpdf", http.HandlerFunc(HandleGenPDF))     //
 func HandleGenPDF(www http.ResponseWriter, req *http.Request) {
+	var err error
 	if isTLS {
 		www.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+	}
+	if db_flag["file-names"] {
+		fmt.Printf(" At Top: %s\n", godebug.LF())
 	}
 
 	if !CheckAuthToken(www, req) {
@@ -280,33 +299,65 @@ func HandleGenPDF(www http.ResponseWriter, req *http.Request) {
 	if !found_title {
 		title = "Genearted PDF From: " + in
 	}
-	found_out, out := GetVar("out", www, req)
+
+	_ = title
 
 	if !found_in {
 		www.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if !found_out {
-		www.WriteHeader(http.StatusBadRequest)
+
+	id0, _ := uuid.NewV4()
+	tmpFn := id0.String()
+
+	genTmp := fmt.Sprintf("%s/%s/%s.pdf", wd, gCfg.OutputPath, tmpFn)
+	fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+
+	if db_flag["file-names"] {
+		fmt.Printf(" At Top: %s genTmp=[%s]\n", godebug.LF(), genTmp)
+	}
+
+	if true {
+		fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+		err = GenPDF("yep yep yep", in, genTmp)
+		// err := GenPDF(title, in, genTmp)
+		fmt.Fprintf(os.Stderr, "AT: %s, err %s\n", godebug.LF(), err)
+	} else {
+		fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+		err = RunGenPDF(in, genTmp)
+		fmt.Fprintf(os.Stderr, "AT: %s, err %s\n", godebug.LF(), err)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s AT:%s\n", err, godebug.LF())
+		www.WriteHeader(http.StatusInternalServerError)
+	}
+
+	fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+	data, err := ioutil.ReadFile(genTmp)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s AT:%s\n", err, godebug.LF())
+		www.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+	hash := HashStrings.HashByte(data)
+	newFn := fmt.Sprintf("%s/%s/%x.pdf", wd, gCfg.OutputPath, hash)
+	newURI := fmt.Sprintf("%s/%x.pdf", gCfg.OutputURI, hash)
+	if db_flag["file-names"] {
+		fmt.Printf("\n%sAt Top: %s%s\n\tgenTmp=[%s]\n\tnewFn=[%s]\n\tnewURI=[%s]\n\n", MiscLib.ColorYellow, godebug.LF(), MiscLib.ColorReset, genTmp, newFn, newURI)
+	}
+	fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+	err = os.Rename(genTmp, newFn)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s AT:%s\n\tFrom[%s]\n\tTo   [%s]\n\n", err, godebug.LF(), genTmp, newFn)
+		www.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	out = fmt.Sprintf("%s/%s", gCfg.OutputPath, out) // should generate a UUID based or SHA256 based filename. xyzzy
-	// gen unique file name, temporary, "./www/out/<<tmp>>.pdf"
-	// gen PDF to file - add hard part to front of it
-	// calc SHA256 for it
-	// renamte unique to SHA256.pdf - using hard path
-	// return that. return URL based short path.  /out/<<SHA256>>.pdf
-
-	err := GenPDF(title, in, out)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-		www.WriteHeader(http.StatusInternalServerError) // is this the correct error to return at this point?
-	}
-
+	fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
 	www.Header().Set("Content-Type", "application/json; charset=utf-8")
 	www.WriteHeader(http.StatusOK) // 200
-	fmt.Fprintf(www, `{"status":"success","URI":%q}`+"\n", out)
+	fmt.Fprintf(www, `{"status":"success","URI":%q}`+"\n", newURI)
 	return
 }
 
@@ -363,4 +414,28 @@ func HandleExitServer(www http.ResponseWriter, req *http.Request) {
 			fmt.Printf("Error on shutdown: [%s]\n", err)
 		}
 	}()
+}
+
+func GetWD() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return dir
+}
+
+func RunGenPDF(in, out string) (err error) {
+	cmd := exec.Command(gCfg.WkHTMLToPdf, in, out)
+	if db_flag["print-command-success"] {
+		fmt.Printf("Running command and waiting for it to finish...")
+	}
+	err = cmd.Run()
+	if err != nil {
+		fmt.Printf("Command finished with error: %v: %s %s %s\n", err, gCfg.WkHTMLToPdf, in, out)
+	} else {
+		if db_flag["print-command-success"] {
+			fmt.Printf("Command finished with success: %s %s %s\n", gCfg.WkHTMLToPdf, in, out)
+		}
+	}
+	return
 }
