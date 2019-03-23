@@ -1,0 +1,5 @@
+{
+	"db_flag": "",
+	"log_file_name": "./log/log.out",
+	"auth_key": "$ENV$PDF_AUTH_KEY"
+}

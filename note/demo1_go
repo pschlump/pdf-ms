@@ -21,7 +21,7 @@ func main() {
 	object.SetOption("footer.right", "[page]")
 
 	// Create object from url
-	object2, err := pdf.NewObject("https://google.com")
+	object2, err := pdf.NewObject("https://en.wikipedia.org/wiki/Secure_Remote_Password_protocol")
 	if err != nil {
 		log.Fatal(err)
 	}

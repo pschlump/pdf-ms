@@ -1,0 +1,15 @@
+ 4735  cd ../pdf-micro-service
+ 4736  ls ../pdf*
+ 4737  ls
+ 4738  vi note.1
+ 4739  vi demo1.go
+ 4740  cd ~/go/src/github.com/agl
+ 4741  cd -
+ 4742  go get
+ 4743  brew install wkhtmltopdf
+ 4744  brew install caskroom/cask/brew-cask
+ 4745  brew upgrade llvm
+ 4746  which wkhtmltopdf
+ 4747  pwd
+ 4749  open out.pdf
+ 4750  rm out.pdf
