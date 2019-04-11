@@ -43,9 +43,24 @@ func ValidateTemplateHas(TemplateFn string, nameSet []string) (err error) {
 	return nil
 }
 
-// xyzzy
 func Contains(lookFor, has []string) (missing []string, allFound bool) {
 	allFound = true
+	for _, xx := range lookFor {
+		if InArray(xx, has) {
+		} else {
+			allFound = false
+			missing = append(missing, xx)
+		}
+	}
+	return
+}
+
+func InArray(lookFor string, inArr []string) bool {
+	for _, v := range inArr {
+		if lookFor == v {
+			return true
+		}
+	}
 	return
 }
 
