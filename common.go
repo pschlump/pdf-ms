@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/American-Certified-Brands/tools/GetVar"
 	"github.com/pschlump/godebug"
 	"github.com/pschlump/ms"
 	template "github.com/pschlump/textTemplate"
@@ -61,7 +62,7 @@ func InArray(lookFor string, inArr []string) bool {
 			return true
 		}
 	}
-	return
+	return false
 }
 
 // if n, err = IsANumber ( page, www, req ) ; err != nil {
@@ -78,7 +79,7 @@ func IsANumber(s string, www http.ResponseWriter, req *http.Request) (nv int, er
 
 func IsAuthKeyValid(www http.ResponseWriter, req *http.Request) bool {
 	// fmt.Printf("AT: %s - gCfg.AuthKey = [%s]\n", godebug.LF(), gCfg.AuthKey)
-	found, auth_key := GetVar("auth_key", www, req)
+	found, auth_key := GetVar.GetVar("auth_key", www, req)
 	if gCfg.AuthKey != "" {
 		// fmt.Printf("AT: %s - configed AuthKey [%s], found=%v ?auth_key=[%s]\n", godebug.LF(), gCfg.AuthKey, found, auth_key)
 		if !found || auth_key != gCfg.AuthKey {

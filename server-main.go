@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -27,7 +28,8 @@ import (
 	"time"
 
 	"github.com/American-Certified-Brands/config-sample/ReadConfig"
-	pdf "github.com/adrg/go-wkhtmltopdf"
+	"github.com/American-Certified-Brands/tools/CliResponseWriter"
+	"github.com/American-Certified-Brands/tools/GetVar" // pdf "github.com/adrg/go-wkhtmltopdf"
 	"github.com/pschlump/HashStrings"
 	"github.com/pschlump/MiscLib"
 	"github.com/pschlump/filelib"
@@ -39,13 +41,19 @@ import (
 )
 
 // ----------------------------------------------------------------------------------
+//
 // Notes:
 //   Graceful Shutdown: https://stackoverflow.com/questions/39320025/how-to-stop-http-listenandserve
 //   Email with HTML and Text: https://stackoverflow.com/questions/9950098/how-to-send-an-email-using-go-with-an-html-formatted-body
+//
+// Install of wkhtmltopdf on ubuntu
+// 		$ apt-get install xvfb libfontconfig wkhtmltopdf
+//
 // ----------------------------------------------------------------------------------
 
 var Cfg = flag.String("cfg", "cfg.json", "config file for this call")
-var HostPort = flag.String("hostport", ":9018", "Host/Port to listen on")
+var Cli = flag.String("cli", "", "Run as a CLI command intead of a server")
+var HostPort = flag.String("hostport", ":9021", "Host/Port to listen on")
 var DbFlag = flag.String("db_flag", "", "Additional Debug Flags")
 var TLS_crt = flag.String("tls_crt", "", "TLS Signed Publick Key")
 var TLS_key = flag.String("tls_key", "", "TLS Signed Private Key")
@@ -60,7 +68,7 @@ type GlobalConfigData struct {
 
 	OutputPath  string `default:"./www/out"`
 	OutputURI   string `default:"/out"`
-	WkHTMLToPdf string `default:"/usr/local/bin/wkhtmltopdf"`
+	WkHTMLToPdf string `json:"WkHTMLToPdf" default:"/usr/local/bin/wkhtmltopdf"`
 
 	// debug flags:
 	DebugFlag string `json:"db_flag"`
@@ -95,15 +103,17 @@ func init() {
 }
 
 func main() {
-	pdf.Init()
-	defer pdf.Destroy()
+	// pdf.Init()
+	// defer pdf.Destroy()
 
 	wd = GetWD()
 
 	flag.Parse() // Parse CLI arguments to this, --cfg <name>.json
 
 	fns := flag.Args()
-	if len(fns) != 0 {
+	if *Cli != "" {
+		GetVar.SetCliOpts(Cli, fns)
+	} else if len(fns) != 0 {
 		fmt.Printf("Extra arguments are not supported [%s]\n", fns)
 		os.Exit(1)
 	}
@@ -184,6 +194,8 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%s\t%s%s\n", MiscLib.ColorGreen, x, MiscLib.ColorReset)
 		}
 	}
+	GetVar.SetDbFlag(db_flag)
+	CliResponseWriter.SetDbFlag(db_flag)
 
 	// ------------------------------------------------------------------------------
 	// Setup HTTP End Points
@@ -205,9 +217,76 @@ func main() {
 	// Live Monitor Setup
 	// ------------------------------------------------------------------------------
 	monClient, err7 := RedisClient()
-	fmt.Printf("err7=%v AT: %s\n", err7, godebug.LF())
+	if db_flag["err7"] {
+		fmt.Printf("err7=%v AT: %s\n", err7, godebug.LF())
+	}
 	mon := MonAliveLib.NewMonIt(func() *redis.Client { return monClient }, func(conn *redis.Client) {})
+	mon.SetDebugFlags(db_flag)
 	mon.SendPeriodicIAmAlive("PDF-Generate-MS")
+
+	// ------------------------------------------------------------------------------
+	// ------------------------------------------------------------------------------
+	if *Cli != "" {
+		www := CliResponseWriter.NewCliResonseWriter() // www := http.ResponseWriter
+		/*
+		   type url.URL struct {
+		   	Scheme     string
+		   	Opaque     string    // encoded opaque data
+		   	User       *Userinfo // username and password information
+		   	Host       string    // host or host:port
+		   	Path       string    // path (relative paths may omit leading slash)
+		   	RawPath    string    // encoded path hint (see EscapedPath method)
+		   	ForceQuery bool      // append a query ('?') even if RawQuery is empty
+		   	RawQuery   string    // encoded query values, without '?'
+		   	Fragment   string    // fragment for references, without '#'
+		   }
+		   // From: https://golang.org/src/net/url/url.go?s=9736:10252#L353 :363
+		*/
+		qryParam := GetVar.GenQryFromCli()
+		if db_flag["cli"] {
+			fmt.Printf("qry_params= ->%s<- at:%s\n", qryParam, godebug.LF())
+		}
+		u := url.URL{
+			User:     nil,
+			Host:     "127.0.0.1:80",
+			Path:     *Cli,
+			RawQuery: qryParam,
+		}
+		req := &http.Request{ // https://golang.org/src/net/http/request.go:113
+			Method:     "GET",
+			URL:        &u, // *url.URL
+			Proto:      "HTTP/1.0",
+			ProtoMajor: 1,
+			ProtoMinor: 0,
+			Header:     make(http.Header),
+			// Body io.ReadCloser // :182 -- not used, GET request - no body.
+			// Form url.Values -- Populate with values from CLI
+			Host:       "127.0.0.1:80",
+			RequestURI: *Cli + "?" + qryParam, // "RequestURI": "/api/v1/status?id=dump-request",
+		}
+		switch *Cli {
+		case "/api/v1/status":
+			HandleStatus(www, req)
+		case "/api/v1/exit-server":
+			fmt.Printf("Exit server\n")
+		case "/api/v1/genpdf":
+			HandleGenPDF(www, req)
+		default:
+			fn := "./www/" + *Cli
+			s, err := ioutil.ReadFile(fn)
+			if err != nil {
+				fmt.Printf("Status: 404\n")
+			} else {
+				fmt.Printf("Status: 200\n")
+				fmt.Printf("%s\n", s)
+			}
+		}
+		www.Flush()
+		if db_flag["Cli.Where"] {
+			www.DumpWhere()
+		}
+		os.Exit(0)
+	}
 
 	// ------------------------------------------------------------------------------
 	// Setup / Run the HTTP Server.
@@ -294,8 +373,8 @@ func HandleGenPDF(www http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	found_in, in := GetVar("in", www, req)
-	found_title, title := GetVar("title", www, req)
+	found_in, in := GetVar.GetVar("in", www, req)
+	found_title, title := GetVar.GetVar("title", www, req)
 	if !found_title {
 		title = "Genearted PDF From: " + in
 	}
@@ -317,16 +396,16 @@ func HandleGenPDF(www http.ResponseWriter, req *http.Request) {
 		fmt.Printf(" At Top: %s genTmp=[%s]\n", godebug.LF(), genTmp)
 	}
 
-	if false {
-		fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
-		// err = GenPDF("yep yep yep", in, genTmp)
-		err = GenPDF(title, in, genTmp)
-		fmt.Fprintf(os.Stderr, "AT: %s, err %s\n", godebug.LF(), err)
-	} else {
-		// fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
-		err = RunGenPDF(in, genTmp)
-		// fmt.Fprintf(os.Stderr, "AT: %s, err %s\n", godebug.LF(), err)
-	}
+	//	if db_flag["use-wkhtmltopdf-library"] { // set to true if the Go WkHTMLToPDF library works.
+	//		fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+	//		// err = GenPDF("yep yep yep", in, genTmp)
+	//		err = GenPDF(title, in, genTmp)
+	//		fmt.Fprintf(os.Stderr, "AT: %s, err %s\n", godebug.LF(), err)
+	//	} else {
+	// fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+	err = RunGenPDF(in, genTmp)
+	// fmt.Fprintf(os.Stderr, "AT: %s, err %s\n", godebug.LF(), err)
+	//	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s AT:%s\n", err, godebug.LF())
 		www.WriteHeader(http.StatusInternalServerError)
@@ -363,7 +442,7 @@ func HandleGenPDF(www http.ResponseWriter, req *http.Request) {
 
 // HandleStatus - server to respond with a working message if up.
 func HandleStatus(www http.ResponseWriter, req *http.Request) {
-	found, resetToZero := GetVar("resetToZero", www, req)
+	found, resetToZero := GetVar.GetVar("resetToZero", www, req)
 	if isTLS {
 		www.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 	}
@@ -390,7 +469,7 @@ func HandleExitServer(www http.ResponseWriter, req *http.Request) {
 	www.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	//	// fmt.Printf("AT: %s - gCfg.AuthKey = [%s]\n", godebug.LF(), gCfg.AuthKey)
-	//	found, auth_key := GetVar("auth_key", www, req)
+	//	found, auth_key := GetVar.GetVar("auth_key", www, req)
 	//	if gCfg.AuthKey != "" {
 	//		// fmt.Printf("AT: %s - configed AuthKey [%s], found=%v ?auth_key=[%s]\n", godebug.LF(), gCfg.AuthKey, found, auth_key)
 	//		if !found || auth_key != gCfg.AuthKey {

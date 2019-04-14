@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/American-Certified-Brands/tools/GetVar"
 	"github.com/pschlump/MiscLib"
 	"github.com/pschlump/godebug"
 )
@@ -49,7 +50,7 @@ func CheckAuthToken(www http.ResponseWriter, req *http.Request) bool {
 		return true
 	}
 
-	auth_key_found, auth_key := GetVar("auth_key", www, req)
+	auth_key_found, auth_key := GetVar.GetVar("auth_key", www, req)
 	if db_flag["db-auth"] {
 		fmt.Printf("Variable: %s\n", auth_key)
 	}
