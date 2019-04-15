@@ -66,8 +66,8 @@ type GlobalConfigData struct {
 
 	LogFileName string `json:"log_file_name"`
 
-	OutputPath  string `default:"./www/out"`
-	OutputURI   string `default:"/out"`
+	OutputPath  string `json:"OutputPath" default:"./www/out"`
+	OutputURI   string `json:"OutputURI" default:"/out"`
 	WkHTMLToPdf string `json:"WkHTMLToPdf" default:"/usr/local/bin/wkhtmltopdf"`
 
 	// debug flags:
@@ -389,8 +389,14 @@ func HandleGenPDF(www http.ResponseWriter, req *http.Request) {
 	id0, _ := uuid.NewV4()
 	tmpFn := id0.String()
 
-	genTmp := fmt.Sprintf("%s/%s/%s.pdf", wd, gCfg.OutputPath, tmpFn)
-	// fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+	genTmp := ""
+	if gCfg.OutputPath[0:1] == "/" {
+		genTmp = fmt.Sprintf("%s/%s.pdf", gCfg.OutputPath, tmpFn)
+		// fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+	} else {
+		genTmp = fmt.Sprintf("%s/%s/%s.pdf", wd, gCfg.OutputPath, tmpFn)
+		// fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
+	}
 
 	if db_flag["file-names"] {
 		fmt.Printf(" At Top: %s genTmp=[%s]\n", godebug.LF(), genTmp)
@@ -418,10 +424,16 @@ func HandleGenPDF(www http.ResponseWriter, req *http.Request) {
 		www.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	var newFn, newURI string
 	// fmt.Fprintf(os.Stderr, "AT: %s\n", godebug.LF())
 	hash := HashStrings.HashByte(data)
-	newFn := fmt.Sprintf("%s/%s/%x.pdf", wd, gCfg.OutputPath, hash)
-	newURI := fmt.Sprintf("%s/%x.pdf", gCfg.OutputURI, hash)
+	if gCfg.OutputPath[0:1] == "/" {
+		newFn = fmt.Sprintf("%s/%x.pdf", gCfg.OutputPath, hash)
+	} else {
+		newFn = fmt.Sprintf("%s/%s/%x.pdf", wd, gCfg.OutputPath, hash)
+	}
+	newURI = fmt.Sprintf("%s/%x.pdf", gCfg.OutputURI, hash)
 	if db_flag["file-names"] {
 		fmt.Printf("\n%sAt Top: %s%s\n\tgenTmp=[%s]\n\tnewFn=[%s]\n\tnewURI=[%s]\n\n", MiscLib.ColorYellow, godebug.LF(), MiscLib.ColorReset, genTmp, newFn, newURI)
 	}

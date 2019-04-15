@@ -1,6 +1,9 @@
 {
 	"db_flag": "",
-	"WkHTMLToPdf" : "/usr/bin/wkhtmltopdf",
+	"System_WkHTMLToPdf" : "/usr/bin/wkhtmltopdf",
+	"WkHTMLToPdf" : "/home/pschlump/tools/pdf-micro-service/w/wkhtmltox/bin/wkhtmltopdf",
 	"log_file_name": "/tmp/pdf-micro-service.log",
+	"OutputPath": "/var/www/auth.beefchain.com/html/out",
+	"OutputURI": "http://auth.beefchain.com/out",
 	"auth_key": "$ENV$PDF_AUTH_KEY"
 }
