@@ -22,20 +22,16 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/American-Certified-Brands/config-sample/ReadConfig"
 	"github.com/American-Certified-Brands/tools/CliResponseWriter"
 	"github.com/American-Certified-Brands/tools/GetVar" // pdf "github.com/adrg/go-wkhtmltopdf"
+	"github.com/American-Certified-Brands/tools/lms"
 	"github.com/pschlump/HashStrings"
 	"github.com/pschlump/MiscLib"
-	"github.com/pschlump/filelib"
-	"github.com/pschlump/godebug"
-	MonAliveLib "github.com/pschlump/mon-alive/lib" // "github.com/pschlump/mon-alive/lib"
-	"github.com/pschlump/radix.v2/redis"
+	"github.com/pschlump/godebug" // "github.com/pschlump/mon-alive/lib"
 	template "github.com/pschlump/textTemplate"
 	"github.com/pschlump/uuid"
 )
@@ -59,26 +55,11 @@ var TLS_crt = flag.String("tls_crt", "", "TLS Signed Publick Key")
 var TLS_key = flag.String("tls_key", "", "TLS Signed Private Key")
 
 type GlobalConfigData struct {
-	// Add in Redis stuff
-	RedisConnectHost string `json:"redis_host" default:"$ENV$REDIS_HOST"`
-	RedisConnectAuth string `json:"redis_auth" default:"$ENV$REDIS_AUTH"`
-	RedisConnectPort string `json:"redis_port" default:"6379"`
-
-	LogFileName string `json:"log_file_name"`
+	lms.BaseConfigType
 
 	OutputPath  string `json:"OutputPath" default:"./www/out"`
 	OutputURI   string `json:"OutputURI" default:"/out"`
 	WkHTMLToPdf string `json:"WkHTMLToPdf" default:"/usr/local/bin/wkhtmltopdf"`
-
-	// debug flags:
-	DebugFlag string `json:"db_flag"`
-
-	AuthKey string `json:"auth_key" default:""` // Auth key by default is turned off.
-
-	// Default file for TLS setup (Should include path), both must be specified.
-	// These can be over ridden on the command line.
-	TLS_crt string `json:"tls_crt" default:""`
-	TLS_key string `json:"tls_key" default:""`
 }
 
 var gCfg GlobalConfigData
@@ -135,65 +116,17 @@ func main() {
 	// ------------------------------------------------------------------------------
 	// Logging File
 	// ------------------------------------------------------------------------------
-	if gCfg.LogFileName != "" {
-		bn := path.Dir(gCfg.LogFileName)
-		os.MkdirAll(bn, 0755)
-		fp, err := filelib.Fopen(gCfg.LogFileName, "a")
-		if err != nil {
-			log.Fatalf("log file confiured, but unable to open, file[%s] error[%s]\n", gCfg.LogFileName, err)
-		}
-		LogFile(fp)
-	}
+	logFilePtr = lms.LoggingSetup(&(gCfg.BaseConfigType))
 
 	// ------------------------------------------------------------------------------
 	// TLS parameter check / setup
 	// ------------------------------------------------------------------------------
-	if *TLS_crt == "" && gCfg.TLS_crt != "" {
-		TLS_crt = &gCfg.TLS_crt
-	}
-	if *TLS_key == "" && gCfg.TLS_key != "" {
-		TLS_key = &gCfg.TLS_key
-	}
-
-	if *TLS_crt != "" && *TLS_key == "" {
-		log.Fatalf("Must supply both .crt and .key for TLS to be turned on - fatal error.")
-	} else if *TLS_crt == "" && *TLS_key != "" {
-		log.Fatalf("Must supply both .crt and .key for TLS to be turned on - fatal error.")
-	} else if *TLS_crt != "" && *TLS_key != "" {
-		if !filelib.Exists(*TLS_crt) {
-			log.Fatalf("Missing file ->%s<-\n", *TLS_crt)
-		}
-		if !filelib.Exists(*TLS_key) {
-			log.Fatalf("Missing file ->%s<-\n", *TLS_key)
-		}
-		isTLS = true
-	}
+	lms.TLSSetup(TLS_crt, TLS_key, &isTLS, &(gCfg.BaseConfigType))
 
 	// ------------------------------------------------------------------------------
 	// Debug Flag Processing
 	// ------------------------------------------------------------------------------
-	if gCfg.DebugFlag != "" {
-		ss := strings.Split(gCfg.DebugFlag, ",")
-		// fmt.Printf("gCfg.DebugFlag ->%s<-\n", gCfg.DebugFlag)
-		for _, sx := range ss {
-			// fmt.Printf("Setting ->%s<-\n", sx)
-			db_flag[sx] = true
-		}
-	}
-	if *DbFlag != "" {
-		ss := strings.Split(*DbFlag, ",")
-		// fmt.Printf("gCfg.DebugFlag ->%s<-\n", gCfg.DebugFlag)
-		for _, sx := range ss {
-			// fmt.Printf("Setting ->%s<-\n", sx)
-			db_flag[sx] = true
-		}
-	}
-	if db_flag["dump-db-flag"] {
-		fmt.Fprintf(os.Stderr, "%sDB Flags Enabled Are:%s\n", MiscLib.ColorGreen, MiscLib.ColorReset)
-		for x := range db_flag {
-			fmt.Fprintf(os.Stderr, "%s\t%s%s\n", MiscLib.ColorGreen, x, MiscLib.ColorReset)
-		}
-	}
+	lms.DebugFlagProcess(DbFlag, db_flag, &(gCfg.BaseConfigType))
 	GetVar.SetDbFlag(db_flag)
 	CliResponseWriter.SetDbFlag(db_flag)
 
@@ -216,13 +149,7 @@ func main() {
 	// ------------------------------------------------------------------------------
 	// Live Monitor Setup
 	// ------------------------------------------------------------------------------
-	monClient, err7 := RedisClient()
-	if db_flag["err7"] {
-		fmt.Printf("err7=%v AT: %s\n", err7, godebug.LF())
-	}
-	mon := MonAliveLib.NewMonIt(func() *redis.Client { return monClient }, func(conn *redis.Client) {})
-	mon.SetDebugFlags(db_flag)
-	mon.SendPeriodicIAmAlive("PDF-Generate-MS")
+	lms.LiveMonSetup("PDF-Generate-MS", db_flag, &(gCfg.BaseConfigType))
 
 	// ------------------------------------------------------------------------------
 	// ------------------------------------------------------------------------------
@@ -472,7 +399,7 @@ func HandleStatus(www http.ResponseWriter, req *http.Request) {
 // HandleExitServer - graceful server shutdown.
 func HandleExitServer(www http.ResponseWriter, req *http.Request) {
 
-	if !IsAuthKeyValid(www, req) {
+	if !lms.IsAuthKeyValid(www, req, &(gCfg.BaseConfigType)) {
 		return
 	}
 	if isTLS {
