@@ -139,7 +139,7 @@ func main() {
 	mux.Handle("/status", http.HandlerFunc(HandleStatus))                 //
 	mux.Handle("/api/v1/exit-server", http.HandlerFunc(HandleExitServer)) //
 	mux.Handle("/api/v1/genpdf", http.HandlerFunc(HandleGenPDF))          //
-	mux.Handle("/", http.FileServer(http.Dir("www")))
+	mux.Handle("/", http.FileServer(http.Dir(gCfg.StaticPath)))
 
 	// ------------------------------------------------------------------------------
 	// Setup signal capture
