@@ -28,6 +28,7 @@ import (
 	"github.com/American-Certified-Brands/config-sample/ReadConfig"
 	"github.com/American-Certified-Brands/tools/CliResponseWriter"
 	"github.com/American-Certified-Brands/tools/GetVar" // pdf "github.com/adrg/go-wkhtmltopdf"
+	"github.com/American-Certified-Brands/tools/apache_logger"
 	"github.com/American-Certified-Brands/tools/lms"
 	"github.com/pschlump/HashStrings"
 	"github.com/pschlump/MiscLib"
@@ -230,16 +231,18 @@ func main() {
 				tls.TLS_RSA_WITH_AES_256_CBC_SHA,
 			},
 		}
+		loggingHandler := apache_logger.NewApacheLoggingHandler(mux, logFilePtr, nil, &apache_logger.DBACleanupFunc)
 		httpServer = &http.Server{
 			Addr:         *HostPort,
-			Handler:      mux,
+			Handler:      loggingHandler,
 			TLSConfig:    cfg,
 			TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 		}
 	} else {
+		loggingHandler := apache_logger.NewApacheLoggingHandler(mux, logFilePtr, nil, &apache_logger.DBACleanupFunc)
 		httpServer = &http.Server{
 			Addr:    *HostPort,
-			Handler: mux,
+			Handler: loggingHandler,
 		}
 	}
 
