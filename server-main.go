@@ -1,7 +1,6 @@
 package main
 
 // Copyright (C) 2017-2019 Philip Schlump.  See ./LICENSE
-// Copyright (C) 2017-2019 Philip Schlump.  See ./LICENSE
 
 // Sample: http://127.0.0.1:9018/api/v1/genpdf?in=https://www.google.com&title=bo
 
@@ -45,6 +44,10 @@ import (
 //
 // Install of wkhtmltopdf on ubuntu
 // 		$ apt-get install xvfb libfontconfig wkhtmltopdf
+// In Makefile See:
+// # From: https://github.com/mileszs/wicked_pdf/issues/723
+// NoteInstallPatchedVersion:
+// 		wget https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.3/wkhtmltox-0.12.3_linux-generic-amd64.tar.xz
 //
 // ----------------------------------------------------------------------------------
 
@@ -64,6 +67,7 @@ type GlobalConfigData struct {
 }
 
 var gCfg GlobalConfigData
+var GitCommit string
 var nPDFConverted = 0
 var nPDFConvertedMux *sync.Mutex
 var logFilePtr *os.File
@@ -395,7 +399,7 @@ func HandleStatus(www http.ResponseWriter, req *http.Request) {
 	}
 	www.Header().Set("Content-Type", "application/json; charset=utf-8")
 	www.WriteHeader(http.StatusOK) // 200
-	fmt.Fprintf(www, `{"status":"success","nPDFConverted":%d}`+"\n", nPDFConverted)
+	fmt.Fprintf(www, `{"status":"success", "version":%q, "nPDFConverted":%d}`+"\n", GitCommit, nPDFConverted)
 	return
 }
 
@@ -410,20 +414,8 @@ func HandleExitServer(www http.ResponseWriter, req *http.Request) {
 	}
 	www.Header().Set("Content-Type", "application/json; charset=utf-8")
 
-	//	// fmt.Printf("AT: %s - gCfg.AuthKey = [%s]\n", godebug.LF(), gCfg.AuthKey)
-	//	found, auth_key := GetVar.GetVar("auth_key", www, req)
-	//	if gCfg.AuthKey != "" {
-	//		// fmt.Printf("AT: %s - configed AuthKey [%s], found=%v ?auth_key=[%s]\n", godebug.LF(), gCfg.AuthKey, found, auth_key)
-	//		if !found || auth_key != gCfg.AuthKey {
-	//			// fmt.Printf("AT: %s\n", godebug.LF())
-	//			www.WriteHeader(http.StatusUnauthorized) // 401
-	//			return
-	//		}
-	//	}
-	//	// fmt.Printf("AT: %s\n", godebug.LF())
-
 	www.WriteHeader(http.StatusOK) // 200
-	fmt.Fprintf(www, `{"status":"success","nPDFConverted":%d}`+"\n", nPDFConverted)
+	fmt.Fprintf(www, `{"status":"success", "version":%q, "nPDFConverted":%d}`+"\n", GitCommit, nPDFConverted)
 
 	go func() {
 		// Implement graceful exit with auth_key

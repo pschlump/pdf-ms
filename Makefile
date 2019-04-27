@@ -1,12 +1,12 @@
 
 all:
-	go build
+	../bin/cmp-local.sh
 
 linux:
 	GOOS=linux go build -o pdf-micro-service.linux .
 
 deploy_74:
-	GOOS=linux go build -o pdf-micro-service.linux .
+	../bin/cmp-prod.sh pdf-micro-service.linux
 	echo ssh pschlump@192.154.97.74 "mkdir -p ./tools/pdf-micro-service"
 	echo ssh pschlump@192.154.97.74 "mkdir -p ./tools/pdf-micro-service/www"
 	echo ssh pschlump@192.154.97.74 "mkdir -p ./tools/pdf-micro-service/www/out"
