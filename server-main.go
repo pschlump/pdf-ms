@@ -57,6 +57,7 @@ var HostPort = flag.String("hostport", ":9021", "Host/Port to listen on")
 var DbFlag = flag.String("db_flag", "", "Additional Debug Flags")
 var TLS_crt = flag.String("tls_crt", "", "TLS Signed Publick Key")
 var TLS_key = flag.String("tls_key", "", "TLS Signed Private Key")
+var Version = flag.Bool("version", false, "Report version of code and exit")
 
 type GlobalConfigData struct {
 	lms.BaseConfigType
@@ -102,6 +103,11 @@ func main() {
 	} else if len(fns) != 0 {
 		fmt.Printf("Extra arguments are not supported [%s]\n", fns)
 		os.Exit(1)
+	}
+
+	if *Version {
+		fmt.Printf("Version (Git Commit): %s\n", GitCommit)
+		os.Exit(0)
 	}
 
 	if Cfg == nil {
