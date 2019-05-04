@@ -15,6 +15,7 @@ deploy_74:
 	scp prod-cfg.json pschlump@192.154.97.74:/home/pschlump/tools/pdf-micro-service
 	echo scp run-prod.sh pschlump@192.154.97.74:/home/pschlump/tools/pdf-micro-service
 	echo rsync -r -a -v -e "ssh -l pschlump"    ./www            			pschlump@192.154.97.74:/home/pschlump/tools/pdf-micro-service
+	echo "deploy-to-prod: " ${GIT_COMMIT} `date` >>build-log.txt 
 
 # From: https://github.com/mileszs/wicked_pdf/issues/723
 NoteInstallPatchedVersion:
