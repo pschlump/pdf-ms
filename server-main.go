@@ -147,6 +147,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/api/v1/status", http.HandlerFunc(HandleStatus))          //
 	mux.Handle("/status", http.HandlerFunc(HandleStatus))                 //
+	mux.Handle("/api/v1/config", http.HandlerFunc(HandleConfig))          //
 	mux.Handle("/api/v1/exit-server", http.HandlerFunc(HandleExitServer)) //
 	mux.Handle("/api/v1/genpdf", http.HandlerFunc(HandleGenPDF))          //
 	mux.Handle("/", http.FileServer(http.Dir(gCfg.StaticPath)))
@@ -403,9 +404,10 @@ func HandleStatus(www http.ResponseWriter, req *http.Request) {
 		nPDFConverted = 0
 		nPDFConvertedMux.Unlock()
 	}
+	pid := os.Getpid()
 	www.Header().Set("Content-Type", "application/json; charset=utf-8")
 	www.WriteHeader(http.StatusOK) // 200
-	fmt.Fprintf(www, `{"status":"success", "version":%q, "nPDFConverted":%d}`+"\n", GitCommit, nPDFConverted)
+	fmt.Fprintf(www, `{"status":"success", "version":%q, "nPDFConverted":%d, "pid":%v}`+"\n", GitCommit, nPDFConverted, pid)
 	return
 }
 
@@ -415,13 +417,14 @@ func HandleExitServer(www http.ResponseWriter, req *http.Request) {
 	if !lms.IsAuthKeyValid(www, req, &(gCfg.BaseConfigType)) {
 		return
 	}
+	pid := os.Getpid()
 	if isTLS {
 		www.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 	}
 	www.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	www.WriteHeader(http.StatusOK) // 200
-	fmt.Fprintf(www, `{"status":"success", "version":%q, "nPDFConverted":%d}`+"\n", GitCommit, nPDFConverted)
+	fmt.Fprintf(www, `{"status":"success", "version":%q, "nPDFConverted":%d, "pid":%v}`+"\n", GitCommit, nPDFConverted, pid)
 
 	go func() {
 		// Implement graceful exit with auth_key
@@ -433,6 +436,20 @@ func HandleExitServer(www http.ResponseWriter, req *http.Request) {
 			fmt.Printf("Error on shutdown: [%s]\n", err)
 		}
 	}()
+}
+
+func HandleConfig(www http.ResponseWriter, req *http.Request) {
+
+	if !lms.IsAuthKeyValid(www, req, &(gCfg.BaseConfigType)) {
+		return
+	}
+	if isTLS {
+		www.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+	}
+	www.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	www.WriteHeader(http.StatusOK) // 200
+	fmt.Fprintf(www, godebug.SVarI(gCfg))
 }
 
 func GetWD() string {
