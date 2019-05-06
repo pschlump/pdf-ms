@@ -17,6 +17,9 @@ fi
 
 (
 while true ; do 
+	if [ -f ./set-env.sh ] ; then
+		. ./set-env.sh
+	fi
 	./pdf-micro-service.linux -cfg ./prod-cfg.json -hostport 192.154.97.75:9021 2>&1  >/tmp/pdf-micro-service.out 
 	sleep 1 
 done
