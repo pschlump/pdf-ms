@@ -29,6 +29,7 @@ import (
 	"github.com/American-Certified-Brands/tools/GetVar" // pdf "github.com/adrg/go-wkhtmltopdf"
 	"github.com/American-Certified-Brands/tools/apache_logger"
 	"github.com/American-Certified-Brands/tools/lms"
+	"github.com/American-Certified-Brands/tools/ymux"
 	"github.com/pschlump/HashStrings"
 	"github.com/pschlump/MiscLib"
 	"github.com/pschlump/godebug" // "github.com/pschlump/mon-alive/lib"
@@ -144,13 +145,16 @@ func main() {
 	// ------------------------------------------------------------------------------
 	// Setup HTTP End Points
 	// ------------------------------------------------------------------------------
-	mux := http.NewServeMux()
+	// mux := http.NewServeMux()
+	mux := ymux.NewServeMux()
 	mux.Handle("/api/v1/status", http.HandlerFunc(HandleStatus))          //
 	mux.Handle("/status", http.HandlerFunc(HandleStatus))                 //
 	mux.Handle("/api/v1/config", http.HandlerFunc(HandleConfig))          //
 	mux.Handle("/api/v1/exit-server", http.HandlerFunc(HandleExitServer)) //
 	mux.Handle("/api/v1/genpdf", http.HandlerFunc(HandleGenPDF))          //
 	mux.Handle("/", http.FileServer(http.Dir(gCfg.StaticPath)))
+
+	mux.DumpPaths() // PJS
 
 	// ------------------------------------------------------------------------------
 	// Setup signal capture
