@@ -15,12 +15,13 @@ else
 	kill $xx
 fi
 
+LOGDIR=/mnt/disk1/log/qr_relay
+mkdir -p ${LOGDIR}
+
 (
+echo $$ >${LOGDIR}/.self
 while true ; do 
-	if [ -f ./set-env.sh ] ; then
-		. ./set-env.sh
-	fi
-	./pdf-micro-service.linux -cfg ./prod-cfg.json -hostport 192.154.97.75:9021 2>&1  >/tmp/pdf-micro-service.out 
+	./pdf-micro-service.linux -cfg ./prod-cfg.json -hostport 192.154.97.75:9021 2>&1  >${LOGDIR}/pdf-micro-service.out 
 	sleep 1 
 done
-) 2>&1 > /tmp/pdf-micro-service.2.out &
+) 2>&1 > ${LOGDIR}/pdf-micro-service.2.out &
